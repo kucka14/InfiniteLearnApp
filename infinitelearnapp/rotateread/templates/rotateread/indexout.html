@@ -1,0 +1,19 @@
+{% extends "rotateread/rotateread_base.html" %}
+{% block body %}
+
+<div id="indexout-container">
+    <div id="enter-email-box">
+        <form id="enter-email-form" style="display: block;">
+            {% csrf_token %}
+            <input type="email" id="email-input" placeholder="Email">
+            <input type="submit" style="display: none;">
+        </form>
+        <div id="email-submitted-box" style="display: none;">
+            Check your email.
+        </div>
+    </div>
+</div>
+
+<script src="/static/rotateread/js/indexout.js"></script>
+
+{% endblock %}
