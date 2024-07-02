@@ -1,0 +1,84 @@
+.ellipsis-line {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+#indexin-container {
+    height: 100vh;
+    width: 100vw;
+}
+
+#side-panel {
+    position: fixed;
+    top: 0;
+    left: -250px;
+    width: 250px;
+    height: 100%;
+    background-color: #333;
+    color: white;
+    overflow-x: hidden;
+    transition: 0.3s;
+    padding: 10px;
+    z-index: 100;
+}
+
+#side-panel a {
+    color: white;
+    text-decoration: none;
+}
+
+.resource-list {
+    padding: 0;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+}
+
+.draggable-item {
+    margin: 5px 0;
+    padding: 3px;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: move;
+    color: black;
+    height: 30px;
+}
+
+.draggable-item.dragging {
+    opacity: 0.5;
+}
+
+.duplicable-div {
+    cursor: pointer;
+}
+
+.context-menu {
+    display: none;
+    position: absolute;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+}
+
+.context-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 5px 0;
+}
+
+.context-menu ul li {
+    padding: 10px 20px;
+    cursor: pointer;
+}
+
+.context-menu ul li:hover {
+    background-color: #f0f0f0;
+}
+
+#learn-container {
+    height: 100vh;
+    width: 100vw;
+}

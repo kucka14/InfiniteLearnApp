@@ -1,0 +1,25 @@
+{% extends "rotateread/rotateread_base.html" %}
+{% block body %}
+
+<div id="indexin-container">
+    <div id="side-panel">
+        <a href="/signout">Logout</a>
+        <div id="resource-list">
+            {% for learn_item in learn_items %}
+                <div draggable="true" class="draggable-item duplicable-div ellipsis-line" title="{{ learn_item }}">{{ learn_item }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div id="learn-container"></div>
+</div>
+
+<div id="context-menu" class="context-menu">
+    <ul>
+        <li id="duplicate">Duplicate</li>
+        <li id="remove">Remove</li>
+    </ul>
+</div>
+
+<script src="/static/rotateread/js/indexin.js"></script>
+
+{% endblock %}

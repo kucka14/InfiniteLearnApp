@@ -1,7 +1,9 @@
 function emailSuccessFunction(returnData) {
     document.querySelector('#enter-email-form').style.display = 'none';
     document.querySelector('#email-submitted-box').style.display = 'block';
-    console.log(returnData);
+    if (returnData['status'] !== 'success') {
+        alert('An error occurred.');
+    }
 }
 
 document.querySelector('#enter-email-form').onsubmit = function(e) {

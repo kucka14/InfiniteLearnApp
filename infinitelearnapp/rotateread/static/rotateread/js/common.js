@@ -81,6 +81,7 @@ function axiosPost(postUrl, postData, successFunction='', blockActions=true) {
         if (blockActions) {
             removeLoadingBlock();
         }
-        alert('An error occurred.');
+        // alert('An error occurred.');
+        console.log(error);
     })
 }
