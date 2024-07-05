@@ -1,4 +1,6 @@
+///////////////////////////////////////////
 // js for the side panel sliding in and out
+///////////////////////////////////////////
 
 var sidePanel = document.querySelector('#side-panel');
 var panelWidth = sidePanel.offsetWidth;
@@ -20,7 +22,9 @@ function closePanel() {
     sidePanel.style.left = '-' + panelWidth + 'px';
 }
 
+//////////////////////////////////////////////
 // js for drag and drop list on the side panel
+//////////////////////////////////////////////
 
 const resourceList = document.getElementById('resource-list');
 let draggingElement = null;
@@ -59,7 +63,9 @@ function getDragAfterElement(container, y) {
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
+/////////////////////////////////////////////////////
 // js for duplicating list items in the resource list
+/////////////////////////////////////////////////////
 
 const contextMenu = document.getElementById('context-menu');
 let targetDiv = null;
@@ -100,23 +106,38 @@ function removeDiv(div) {
     }
 }
 
+////////////////////////////////////////////////
 // js that controls the flow through learn items
+////////////////////////////////////////////////
 
-let currentItem = null;
+let currentResource = null;
 let rotateTimeout1 = null;
 let rotateTimeout2 = null;
 let rotateTimeout3 = null;
-let learnItemStatus = null;
-let learnItemBookmark = null;
-let learnItemOther = null;
+let resourceBookmark = null;
+let resourceStorage = null;
+let aiReview = false;
+let contextText = '';
+
 let scrollInterval = null;
 let textDisplayTimeout = null;
 let charTimeout = null;
 let readWordTimeout = null;
 let jumpTextTimeout = null;
-let learnItemName = null;
 
-function activateLearnItem(element) {
+document.addEventListener('dblclick', function(event) {
+    if (event.target.classList.contains('draggable-item')) {
+        if (rotateTimeout1 !== null) {
+            clearResourceDisplay();
+        } else {
+            document.querySelector('#learn-container').innerHTML = '';
+        }
+        activateResource(event.target);
+    }
+});
+
+function activateResource(element) {
+
     clearTimeout(rotateTimeout1);
     clearTimeout(rotateTimeout2);
     clearTimeout(rotateTimeout3);
@@ -124,111 +145,121 @@ function activateLearnItem(element) {
         div.style.backgroundColor = 'white';
     });
     element.style.backgroundColor = 'yellow';
-    currentItem = element;
-    learnItemName = element.innerHTML;
-    executeLearnItem();
-}
+    currentResource = element;
 
-document.addEventListener('dblclick', function(event) {
-    if (event.target.classList.contains('draggable-item')) {
-        if (rotateTimeout1 !== null) {
-            clearDisplayLearn();
+    let resourceStatus = JSON.parse(localStorage.getItem(currentResource.innerHTML + '-status'));
+    if (resourceStatus === null) {
+        resourceStatus = [null, null];
+    }
+    resourceBookmark = resourceStatus[0];
+    resourceStorage = resourceStatus[1];
+    
+    displayResource(currentResource.innerHTML);
+    rotateTimeout1 = setTimeout(function() {
+        rotateTimeout1 = null;
+        clearResourceDisplay();
+        let nextItem = currentResource.nextElementSibling;
+        if (nextItem === null) {
+            nextItem = document.querySelector('.draggable-item');
         }
-        activateLearnItem(event.target);
-    }
-});
+        if (aiReview) {
+            displayAIExamples();
+            rotateTimeout2 = setTimeout(function() {
+                document.querySelector('#learn-container').innerHTML = '';
+                displayAIQuestions();
+                rotateTimeout3 = setTimeout(function() {
+                    document.querySelector('#learn-container').innerHTML = '';
+                    document.onkeyup = null;
+                    activateResource(nextItem);
+                }, 180000);
+            }, 180000);
+        } else {
+            activateResource(nextItem);
+        }
+    }, 600000);
 
-function displayLearnItemSuccess(returnData) {
-    const displayType = returnData['display_type'];
-    const resourceText = returnData['resource_text'];
-    console.log(displayType);
-    if (displayType === 'fastread') {
-        fastreadSet(resourceText);
-    } else if (displayType === 'genread') {
-        genreadSet(resourceText);
-    } else if (displayType === 'video') {
-        videoSet(resourceText);
-    } else if (displayType === 'translate') {
-        const translationChunks = returnData['translation_chunks'];
-        genreadSet(resourceText, translationChunks);
-    }
 }
 
-function displayLearnItem(learnItemName) {
+function displayResource(resourceName) {
     axiosPost(
         postUrl = '/',
-        postData = JSON.stringify({learn_item_name: learnItemName}),
-        successFunction = displayLearnItemSuccess
+        postData = JSON.stringify({resource_name: resourceName}),
+        successFunction = displayResourceSuccessFunction
     );
 }
 
-function displayAIExamples(contextText) {
-    console.log('AIExamples');
-}
-
-function displayAIQuestions(contextText) {
-    console.log('AIQuestions');
-}
-
-function executeLearnItem() {
-    learnItemStatus = JSON.parse(localStorage.getItem(learnItemName + 'status'));
-    if (learnItemStatus === null) {
-        learnItemStatus = [null, null];
+function displayResourceSuccessFunction(returnData) {
+    const displayType = returnData['display_type'];
+    const resourceText = returnData['resource_text'];
+    if (displayType === 'fastread') {
+        contextText = currentResource.innerHTML;
+        fastreadSet(resourceText);
+        aiReview = false;
+    } else if (displayType === 'genread') {
+        contextText = resourceText.split(' ').slice(resourceBookmark, resourceBookmark+200);
+        genreadSet(resourceText);
+        aiReview = true;
+    } else if (displayType === 'video') {
+        videoSet(resourceText);
+        aiReview = false;
+    } else if (displayType === 'translate') {
+        const translationChunks = returnData['translation_chunks'];
+        genreadSet(resourceText, translationChunks);
+        aiReview = false;
     }
-    learnItemBookmark = learnItemStatus[0];
-    learnItemOther = learnItemStatus[1];
-    
-    const contextText = displayLearnItem(learnItemName);
-    rotateTimeout1 = setTimeout(function() {
-        rotateTimeout1 = null;
-        clearDisplayLearn();
-        displayAIExamples(contextText);
-        rotateTimeout2 = setTimeout(function() {
-            document.querySelector('#learn-container').innerHTML = '';
-            displayAIQuestions(contextText);
-            rotateTimeout3 = setTimeout(function() {
-                document.querySelector('#learn-container').innerHTML = '';
-                let nextItem = currentItem.nextElementSibling;
-                if (nextItem === null) {
-                    nextItem = document.querySelector('.draggable-item');
-                }
-                activateLearnItem(nextItem);
-            }, 60000);
-        }, 60000);
-    }, 60000);
-
-    
 }
+
+function askAIQuestion(question, target) {
+    axiosPost(
+        postUrl = 'ee8c78ce53297da92f1fccd7eb5a773a/',
+        postData = JSON.stringify({question: question, target: target}),
+        successFunction = askAIQuestionSuccessFunction
+    );
+}
+
+function askAIQuestionSuccessFunction(returnData) {
+    const response = returnData['response'];
+    const target = returnData['target'];
+    document.querySelector('#' + target).innerHTML = response;
+}
+
+function displayAIExamples() {
+    document.querySelector('#learn-container').innerHTML = `
+        <div style="padding: 20px;" id="ai-response-div"></div>
+    `;
+    const target = 'ai-response-div';
+    const question = 'Generate examples about the following topic: ' + contextText;
+    askAIQuestion(question, target);
+    document.onkeyup = function(e) {
+        if (e.key === 'Enter') {
+            const question = 'Generate more examples about the same topic.';
+            askAIQuestion(question, target);
+        }
+    }
+}
+
+function displayAIQuestions() {
+    document.querySelector('#learn-container').innerHTML = `
+        <div style="padding: 20px;" id="ai-response-div"></div>
+    `;
+    const target = 'ai-response-div';
+    const question = 'Generate questions and answers about the following topic: ' + contextText;
+    askAIQuestion(question, target);
+    document.onkeyup = function(e) {
+        if (e.key === 'Enter') {
+            const question = 'Generate more questions and answers about the same topic.';
+            askAIQuestion(question, target);
+        }
+    }
+}
+
+///////////////////////////////////
+//js that sets up the fastread page
+///////////////////////////////////
 
 function fastreadSet(resourceText) {
+    
     const insertHTML = `
-        <style>
-            #full-container {
-                background-color: DarkSlateGray;
-                position: absolute;
-                height: 100vh;
-                width: 100vw;
-                top: 0;
-                left: 0;
-            }
-
-            #book-container {
-                width: 90%;
-                height: 100%;
-                overflow-y: hidden;
-                margin-left: auto;
-                margin-right: auto;
-            }
-
-            #images-container {
-                position: relative;
-            }
-
-            #page-image {
-                width: 100%;
-            }
-        </style>
-
         <div id="full-container">
             <div id="book-container">
                 <div id="images-container" style="margin-top: 0px;">
@@ -266,10 +297,10 @@ function fastreadSet(resourceText) {
     };
 
     document.onkeyup = function(e) {
-        if (e.keyCode === 40 | e.keyCode === 38) {
+        if (e.keyCode === 40 || e.keyCode === 38) {
             setScrollSpeed(1, readIntervalLength);
         } else if (e.keyCode === 32) {
-            learnItemBookmark = marginTop;
+            resourceBookmark = marginTop;
             if (paused) {
                 setScrollSpeed(1, readIntervalLength);
                 paused = false;
@@ -282,7 +313,7 @@ function fastreadSet(resourceText) {
 
     bookHeight = document.querySelector('#images-container').clientHeight;
     setTimeout(function() {
-        marginTop = learnItemBookmark;
+        marginTop = resourceBookmark;
         if (marginTop !== null) {
             marginTop = parseInt(marginTop);
         } else {
@@ -290,76 +321,16 @@ function fastreadSet(resourceText) {
         }
         setScrollSpeed(1, readIntervalLength);
     });
+
 }
 
+///////////////////////////////////
+//js that sets up the genread page
+///////////////////////////////////
+
 function genreadSet(resourceText, translationChunks=null) {
-    let translateCSS = '';
-    if (translationChunks !== null) {
-        translateCSS = 'display: flex;justify-content: center;align-items: center;max-width: 650px;';
-    }
+
     const insertHTML = `
-        <style>
-            body {
-                color: black;
-                background-color: whitesmoke;
-            }
-
-            #main-div {
-                width: 100vw;
-                height: 100vh;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-            }
-
-            #text-holder-div {
-                width: calc(100% - 40px);
-                max-width: 650px;
-                height: 45vh;
-                min-height: 150px;
-                position: relative;
-                display: flex;
-            }
-
-            #text-display-div {
-                position: absolute;
-                top: 10px;
-                width: 100%;
-                height: 40px;
-                background-color: red;
-                z-index: 1;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 15px;
-            }
-
-            #text-fade-div {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(to top, rgba(245,245,245,0), rgba(245,245,245,0) 30%, rgba(245,245,245,1) 70%, whitesmoke);
-            }
-
-            #text-div {
-                align-self: flex-end;
-                padding: 15px;
-                word-break: break-all;
-            }
-
-            .input-span {
-                display: inline-block;
-                border-radius: 2px;
-            }
-
-            #image-div {
-                height: calc(55vh - 10px);
-                width: calc(100vw - 20px);
-                overflow: scroll;
-                ${translateCSS}
-            }
-        </style>
-
         <div id="main-div">
             <div id="text-holder-div">
                 <div style="display: none;" id="text-display-div"></div>
@@ -371,6 +342,14 @@ function genreadSet(resourceText, translationChunks=null) {
     `;
     document.querySelector('#learn-container').innerHTML = insertHTML;
 
+    if (translationChunks !== null) {
+        const target = document.querySelector('#image-div');
+        target.style.display = 'flex';
+        target.style.justifyContent = 'center';
+        target.style.alignItems = 'center';
+        target.style.maxWidth = '650px';
+    }
+
     const normalChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' ";
     const bookText = resourceText;
     const bookTextList = bookText.split(' ');
@@ -380,13 +359,12 @@ function genreadSet(resourceText, translationChunks=null) {
     const textDiv = document.querySelector('#text-div');
     const textDisplayDiv = document.querySelector('#text-display-div');
     const imageDiv = document.querySelector('#image-div');
-    if (learnItemBookmark === null) {
-        learnItemBookmark = 0;
+    if (resourceBookmark === null) {
+        resourceBookmark = 0;
     } else {
-        learnItemBookmark = parseInt(learnItemBookmark);
+        resourceBookmark = parseInt(resourceBookmark);
     }
     let running = false;
-    let averageWordLength = bookTextList.join(' ').length /  bookTextList.length
     let wordsPerMinuteArray = [25, 50, 75, 100, 125, 150, 175, 200, 250, 300, 350, 400, 450, 500];
     let delayArray = [];
     for (let i = 0; i < wordsPerMinuteArray.length; i++) {
@@ -512,6 +490,7 @@ function genreadSet(resourceText, translationChunks=null) {
         } else {
             return false;
         }
+
     }
 
     function readText() {
@@ -519,22 +498,22 @@ function genreadSet(resourceText, translationChunks=null) {
         let word = null;
         let acceptInput = false;
         function readWord() {
-            if (!running || learnItemBookmark >= bookTextList.length) {
+            if (!running || resourceBookmark >= bookTextList.length) {
                 return;
             }
-            word = bookTextList[learnItemBookmark];
+            word = bookTextList[resourceBookmark];
 
             if ((word.split('-')[0] === 'd1ec9124e9c00620256ed5ee6bf66c28')) {
                 if (translationChunks !== null) {
                     const translationIndex = word.split('-translation')[1];
                     imageDiv.innerHTML = translationChunks[translationIndex];
-                    word = ' ';
                 } else {
                     const image_filename = word.split('-')[1];
                     const image_html = `<img style="width: 100%;" src="/media/genread_images/${image_filename}"><hr>`;
                     imageDiv.innerHTML += image_html;
                 }
-            } else if (word === 'ad9b98955921d47b6ad91e92b6fe7634') {
+                word = ' ';
+            } else if (word.trim() === 'ad9b98955921d47b6ad91e92b6fe7634') {
                 imageDiv.innerHTML = '';
                 word = ' ';
             }
@@ -556,7 +535,7 @@ function genreadSet(resourceText, translationChunks=null) {
                 target = textDiv;
             }
             addWord(target, word, charDelay, acceptInput, function() {
-                learnItemBookmark++;
+                resourceBookmark++;
                 readWordTimeout = setTimeout(function() {
                     readWord();
                 }, wordDelay);
@@ -569,13 +548,13 @@ function genreadSet(resourceText, translationChunks=null) {
         let originalRunning = running;
         running = false;
         jumpTextTimeout = setTimeout(function() {
-            learnItemBookmark += jumpAmount;
-            if (learnItemBookmark < 0) {
-                learnItemBookmark = 0;
-            } else if (learnItemBookmark >= bookTextList.length) {
-                learnItemBookmark = bookTextList.length - 1;
+            resourceBookmark += jumpAmount;
+            if (resourceBookmark < 0) {
+                resourceBookmark = 0;
+            } else if (resourceBookmark >= bookTextList.length) {
+                resourceBookmark = bookTextList.length - 1;
             }
-            placeTextChunk(learnItemBookmark - 1000, learnItemBookmark);
+            placeTextChunk(resourceBookmark - 1000, resourceBookmark);
             if (originalRunning) {
                 running = true;
                 readText();
@@ -584,7 +563,7 @@ function genreadSet(resourceText, translationChunks=null) {
     }
 
     function placeProgressBanner() {
-        let percentComplete = Math.round((learnItemBookmark / bookTextList.length)*100) + '%';
+        let percentComplete = Math.round((resourceBookmark / bookTextList.length)*100) + '%';
         let wordsPerMinuteArrayIndex = delayArray.indexOf(delay);
         let wordsPerMinute = wordsPerMinuteArray[wordsPerMinuteArrayIndex] + 'wpm';
         progressText = `<div>${percentComplete}</div><div>${wordsPerMinute}</div><div><u>${blankNumber}</u></div>`;
@@ -597,7 +576,7 @@ function genreadSet(resourceText, translationChunks=null) {
             if (running === true) {
                 placeProgressBanner();
                 running = false;
-                placeTextChunk(learnItemBookmark - 1000, learnItemBookmark);
+                placeTextChunk(resourceBookmark - 1000, resourceBookmark);
             } else {
                 textDisplayDiv.style.display = 'none';
                 textDisplayDiv.innerHTML = '';
@@ -625,30 +604,51 @@ function genreadSet(resourceText, translationChunks=null) {
         }
     }
 
-    placeTextChunk(learnItemBookmark - 1000, learnItemBookmark);
+    placeTextChunk(resourceBookmark - 1000, resourceBookmark);
+    
 }
+
+///////////////////////////////////
+//js that sets up the video page
+///////////////////////////////////
 
 function videoSet(resourceText) {
     const insertHTML = `
-        <video width="640" height="360" controls>
-            <source src="${resourceText}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
+        <div style="display: flex; align-items: center; justify-content: center; height: 100vh; width: 100vw;">
+            <video id="video-window" height="90%" controls>
+                <source src="${resourceText}" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
     `;
     document.querySelector('#learn-container').innerHTML = insertHTML;
+
+    const vid = document.querySelector("#video-window");
+
+    document.onkeyup = function(e) {
+        if (e.key === 'ArrowLeft') {
+            vid.playbackRate -= 0.5;
+        } else if (e.key === 'ArrowRight') {
+            vid.playbackRate += 0.5;
+        }
+    }
 }
 
-function clearDisplayLearn() {
+//////////////////////////////////////////////////////////
+//js that clears everything from the resource display page
+//////////////////////////////////////////////////////////
+
+function clearResourceDisplay() {
     document.querySelector('#learn-container').innerHTML = '';
     document.onkeydown = null;
     document.onkeyup = null;
-    window.onload = null;
     clearInterval(scrollInterval);
     clearTimeout(textDisplayTimeout);
     clearTimeout(charTimeout);
     clearTimeout(readWordTimeout);
     clearTimeout(jumpTextTimeout);
-    learnItemStatus[0] = learnItemBookmark;
-    learnItemStatus[1] = learnItemOther;
-    localStorage.setItem(learnItemName + 'status', JSON.stringify(learnItemStatus));
+    const resourceStatus = [resourceBookmark, resourceStorage];
+    localStorage.setItem(currentResource.innerHTML + '-status', JSON.stringify(resourceStatus));
 }
+
+

@@ -1,4 +1,9 @@
-add buttons on video html that increase and decrease video speed
-https://www.w3schools.com/tags/av_prop_playbackrate.asp
+add in the ai options in a modal for sudden questions
 
-add in the ai options
+add the ability to specify the round time on the side panel
+
+make sure contextText is actually returned from displaying text
+
+standardize the css names across files and make sure will be no conflicts
+
+have a better way to get texts, etc without re-scanning and loading too much

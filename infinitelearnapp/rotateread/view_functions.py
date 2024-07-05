@@ -8,14 +8,13 @@ import os
 import random
 from PIL import Image
 import shutil
-import sys
 from pdf2image import pdfinfo_from_path, convert_from_path
-from django.utils.html import escape
 from urllib.request import urlopen
 from pypdf import PdfReader
 from bs4 import BeautifulSoup
 import ebooklib
 from ebooklib import epub
+from openai import OpenAI
 
 def generate_sign_in_token(user):
     token = default_token_generator.make_token(user)
@@ -98,38 +97,38 @@ def prep_pdf(dirpath, filename):
     shutil.rmtree(dirpath + '/images')
 
 def prep_learn_sequence(learn_folder):
-    learn_items = []
+    resource_names = []
     for file in os.listdir(learn_folder):
         if os.path.isfile(learn_folder + '/' + file):
             if file[-4:] == '.pdf':
-                learn_items.append('000-' + file)
-                learn_items.append('111-' + file)
+                resource_names.append('fr|' + file)
+                resource_names.append('gr|' + file)
             else:
-                learn_items.append(file)
-    if 'urls.txt' in learn_items:
+                resource_names.append(file)
+    if 'urls.txt' in resource_names:
         with open(learn_folder + '/urls.txt', 'r') as f:
             urls = f.readlines()
         for url in urls:
-            learn_items.append(url)
-        learn_items.remove('urls.txt')
-    random.shuffle(learn_items)
-    for learn_item in learn_items:
-        if learn_item[-4:] == '.pdf' and learn_item[:4] == '000-' and learn_item[4:-4] not in os.listdir(learn_folder):
-            prep_pdf(learn_folder, learn_item[4:])
-    return learn_items
+            resource_names.append(url.strip())
+        resource_names.remove('urls.txt')
+    random.shuffle(resource_names)
+    for resource_name in resource_names:
+        if resource_name[-4:] == '.pdf' and resource_name[:3] == 'fr|' and resource_name[3:-4] not in os.listdir(learn_folder):
+            prep_pdf(learn_folder, resource_name[3:])
+    return resource_names
 
-def get_fastread_text(learn_folder, learn_item_name):
-    megaimage_dir = learn_folder + '/' + learn_item_name[:-4]
+def get_fastread_text(learn_folder, resource_name):
+    megaimage_dir = learn_folder + '/' + resource_name[:-4]
     filepaths = []
     for filename in os.listdir(megaimage_dir):
         filepath = megaimage_dir + '/' + filename
         filepaths.append(filepath)
     offset = len(megaimage_dir) + 10
     filepaths = sorted(filepaths, key=lambda x: int(x[offset:-4]))
-    body_text = ''
+    resource_text = ''
     for filepath in filepaths:
-        body_text += f'<img id="page-image" src="{filepath}">'
-    return body_text
+        resource_text += f'<img id="page-image" src="{filepath}">'
+    return resource_text
 
 def clear_directory(directory_path):
     files = os.listdir(directory_path)
@@ -149,10 +148,10 @@ def parse_html(html):
 def get_genread_text(file):
     if file[:4] == 'http':
         html = urlopen(file).read()
-        text = parse_html(html)
+        resource_text = parse_html(html)
     elif file[-4:] == '.pdf':
         pdf_reader = PdfReader(file)
-        book_text_list = []
+        resource_text_list = []
         clear_directory('media/genread_images')
         image_count = 0
         try:
@@ -162,26 +161,26 @@ def get_genread_text(file):
                     image_extension = image_file_object.name.split('.')[-1]
                     with open(f'media/genread_images/img{image_count}.{image_extension}', 'wb') as f:
                         f.write(image_file_object.data)
-                    book_text_list.append(f' d1ec9124e9c00620256ed5ee6bf66c28-img{image_count}.{image_extension} ')
+                    resource_text_list.append(f' d1ec9124e9c00620256ed5ee6bf66c28-img{image_count}.{image_extension} ')
                     image_count += 1
-                book_text_list.append(page_text)
-                book_text_list.append(' ad9b98955921d47b6ad91e92b6fe7634 ')
-        except:
-            pass
-        text = '\n\n'.join(book_text_list)
+                resource_text_list.append(page_text)
+                resource_text_list.append(' ad9b98955921d47b6ad91e92b6fe7634 ')
+        except Exception as e:
+            print(e)
+        resource_text = '\n\n'.join(resource_text_list)
     elif file[-4:] == '.txt':
         with open(file, 'r') as f:
-            text = f.read()
+            resource_text = f.read()
     elif file[-5:] == '.epub':
         epub_book = epub.read_epub(file)
-        book_text_list = []
+        resource_text_list = []
         for item in epub_book.get_items():
             if item.get_type() == ebooklib.ITEM_DOCUMENT:
                 html = item.get_content()
                 text = parse_html(html)
-                book_text_list.append(text)
-        text = '\n\n'.join(book_text_list)
-    return text
+                resource_text_list.append(text)
+        resource_text = '\n\n'.join(resource_text_list)
+    return resource_text
 
 def translate_text(target: str, text: str) -> dict:
     """Translates text into the target language.
@@ -223,17 +222,57 @@ def detect_language(text: str) -> dict:
     return result['language']
 
 def get_translate_text(resource_text):
-    book_text_list = []
-    book_text_in_words = resource_text.split(' ')
-    book_text_in_chunks = [' '.join(book_text_in_words[i:i+50]) for i in range(0, len(book_text_in_words), 50)]
+    resource_text_list = []
+    resource_text_in_words = resource_text.split(' ')
+    resource_text_in_chunks = [' '.join(resource_text_in_words[i:i+50]) for i in range(0, len(resource_text_in_words), 50)]
     translation_chunks = []
     translation_count = 0
-    for chunk in book_text_in_chunks:
+    for chunk in resource_text_in_chunks:
         translated_chunk = translate_text('en', chunk)
-        book_text_list.append(f' d1ec9124e9c00620256ed5ee6bf66c28-translation{translation_count} ')
-        book_text_list.append(chunk)
-        book_text_list.append(' ad9b98955921d47b6ad91e92b6fe7634 ')
+        resource_text_list.append(f' d1ec9124e9c00620256ed5ee6bf66c28-translation{translation_count} ')
+        resource_text_list.append(chunk)
+        resource_text_list.append(' ad9b98955921d47b6ad91e92b6fe7634 ')
         translation_chunks.append(translated_chunk)
         translation_count += 1
-    resource_text = '\n\n'.join(book_text_list)
+    resource_text = '\n\n'.join(resource_text_list)
     return resource_text, translation_chunks
+
+def create_ai_assistant_triplet():
+    client = OpenAI()
+    assistant = client.beta.assistants.create(
+        name="General Tutor",
+        instructions="You are a general tutor. You supply answers, explanations, and explanations in a succinct form. All responses should be in LaTeX, using $$...$$ for displayed mathematics and \(...\) for in-line mathematics.",
+        model="gpt-3.5-turbo",
+        tools=[
+        {"type": "code_interpreter"}
+        ],
+    )
+    thread = client.beta.threads.create()
+    return [client, thread, assistant]
+
+def get_ai_response(question, ai_assistant_triplet):
+    if question.strip() == '':
+        return
+    client = ai_assistant_triplet[0]
+    thread = ai_assistant_triplet[1]
+    assistant = ai_assistant_triplet[2]
+    message = client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role='user',
+        content=question
+    )
+    run = client.beta.threads.runs.create_and_poll(
+        thread_id=thread.id,
+        assistant_id=assistant.id,
+    )
+    if run.status == 'completed': 
+        messages = client.beta.threads.messages.list(
+            thread_id=thread.id
+        )
+        try:
+            response = messages.data[0].content[0].text.value
+        except:
+            response = 'AI response could not be shown. Try another query.'
+    else:
+        response = run.status
+    return response
