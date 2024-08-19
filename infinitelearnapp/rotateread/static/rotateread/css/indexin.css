@@ -28,6 +28,11 @@
     text-decoration: none;
 }
 
+#side-panel-top {
+    display: flex;
+    justify-content: space-between;
+}
+
 .resource-list {
     padding: 0;
     width: 220px;

@@ -29,6 +29,38 @@ function closePanel() {
 const resourceList = document.getElementById('resource-list');
 let draggingElement = null;
 
+let resourceListInnerHTML = localStorage.getItem('resourceListInnerHTML');
+if (resourceListInnerHTML !== null) {
+    resourceList.innerHTML = JSON.parse(resourceListInnerHTML);
+}
+
+document.querySelector('#shuffle-button').onclick = function() {
+    // Function to shuffle an array using the Fisher-Yates shuffle algorithm
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+    function shuffleDivs(parentDiv) {
+        // Convert the child divs to an array
+        const divArray = Array.from(parentDiv.children);
+        // Shuffle the array
+        const shuffledDivs = shuffleArray(divArray);
+        // Append the shuffled divs back to the parent div
+        shuffledDivs.forEach(div => parentDiv.appendChild(div));
+    }
+    // Call the shuffleDivs function
+    shuffleDivs(resourceList);
+    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+}
+
+document.querySelector('#reset-button').onclick = function() {
+    localStorage.clear();
+    location.reload();
+}
+
 resourceList.addEventListener('dragstart', function(event) {
     draggingElement = event.target;
     event.target.classList.add('dragging');
@@ -47,6 +79,7 @@ resourceList.addEventListener('dragover', function(event) {
     } else {
         resourceList.insertBefore(draggingElement, afterElement);
     }
+    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
 });
 
 function getDragAfterElement(container, y) {
@@ -63,9 +96,9 @@ function getDragAfterElement(container, y) {
     }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
-/////////////////////////////////////////////////////
-// js for duplicating list items in the resource list
-/////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+// js for duplicating and removing list items in the resource list
+//////////////////////////////////////////////////////////////////
 
 const contextMenu = document.getElementById('context-menu');
 let targetDiv = null;
@@ -80,14 +113,20 @@ document.addEventListener('contextmenu', function(event) {
     } else {
         contextMenu.style.display = 'none';
     }
+    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
 });
 
 document.addEventListener('click', function(event) {
     if (event.target.id === 'duplicate' && targetDiv) {
         duplicateDiv(targetDiv);
         contextMenu.style.display = 'none';
+        localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
     } else if (event.target.id === 'remove' && targetDiv) {
         removeDiv(targetDiv);
+        contextMenu.style.display = 'none';
+        localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+    } else if (event.target.id === 'reset-resource' && targetDiv) {
+        localStorage.setItem(targetDiv.innerHTML + '-status', null);
         contextMenu.style.display = 'none';
     } else if (!contextMenu.contains(event.target)) {
         contextMenu.style.display = 'none';
@@ -125,6 +164,8 @@ let charTimeout = null;
 let readWordTimeout = null;
 let jumpTextTimeout = null;
 
+let resourceCache = {};
+
 document.addEventListener('dblclick', function(event) {
     if (event.target.classList.contains('draggable-item')) {
         if (rotateTimeout1 !== null) {
@@ -146,6 +187,7 @@ function activateResource(element) {
     });
     element.style.backgroundColor = 'yellow';
     currentResource = element;
+    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
 
     let resourceStatus = JSON.parse(localStorage.getItem(currentResource.innerHTML + '-status'));
     if (resourceStatus === null) {
@@ -181,14 +223,19 @@ function activateResource(element) {
 }
 
 function displayResource(resourceName) {
-    axiosPost(
-        postUrl = '/',
-        postData = JSON.stringify({resource_name: resourceName}),
-        successFunction = displayResourceSuccessFunction
-    );
+    if (resourceName in resourceCache) {
+        displayResourceSuccessFunction(resourceCache[resourceName]);
+    } else {
+        axiosPost(
+            postUrl = '/',
+            postData = JSON.stringify({resource_name: resourceName}),
+            successFunction = displayResourceSuccessFunction
+        );
+    }
 }
 
 function displayResourceSuccessFunction(returnData) {
+    resourceCache[currentResource.innerHTML] = returnData;
     const displayType = returnData['display_type'];
     const resourceText = returnData['resource_text'];
     if (displayType === 'fastread') {
@@ -503,12 +550,12 @@ function genreadSet(resourceText, translationChunks=null) {
             }
             word = bookTextList[resourceBookmark];
 
-            if ((word.split('-')[0] === 'd1ec9124e9c00620256ed5ee6bf66c28')) {
+            if ((word.trim().split('-')[0] === 'd1ec9124e9c00620256ed5ee6bf66c28')) {
                 if (translationChunks !== null) {
-                    const translationIndex = word.split('-translation')[1];
+                    const translationIndex = word.trim().split('-translation')[1];
                     imageDiv.innerHTML = translationChunks[translationIndex];
                 } else {
-                    const image_filename = word.split('-')[1];
+                    const image_filename = word.trim().split('-')[1];
                     const image_html = `<img style="width: 100%;" src="/media/genread_images/${image_filename}"><hr>`;
                     imageDiv.innerHTML += image_html;
                 }

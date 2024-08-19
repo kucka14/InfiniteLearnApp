@@ -1,9 +1,33 @@
+fr only saves from most recent pause
+
+need a way to be able to pause the flow of resources
+
+after returning to page, local storage IDs current resource with yellow, but still need to double click resource to activate
+
 add in the ai options in a modal for sudden questions
 
 add the ability to specify the round time on the side panel
 
-make sure contextText is actually returned from displaying text
+be able to get contextText and have AI questions for not just genread
 
 standardize the css names across files and make sure will be no conflicts
 
 have a better way to get texts, etc without re-scanning and loading too much
+
+have small pdfs just display the pdf; no fastread images or genread, etc
+
+problems with jumping around in the video playback
+
+problems with some of genread for pdfs (example devore stats book)
+
+genread sometimes freezes (maybe when moving to new paragraph)
+
+hex strings still appear in genread when displaying previous text
+
+url scan for genread includes a lot of non-article text, and doesn't put spaces after all sentences
+
+for genread, need way to skip over sentences without worrying about changing speed or pausing the fill blank feature
+
+in genread, hex strings are replaced with spaces but still leave large multiline gaps
+
+have a way to still be able to right-click the screen to get the default browser right-click options

@@ -3,7 +3,11 @@
 
 <div id="indexin-container">
     <div id="side-panel">
-        <a href="/signout">Logout</a>
+        <div id="side-panel-top">
+            <a href="/signout">Logout</a>
+            <button id="shuffle-button">Shuffle</button>
+            <button id="reset-button">Reset</button>
+        </div>
         <div id="resource-list">
             {% for learn_item in learn_items %}
                 <div draggable="true" class="draggable-item duplicable-div ellipsis-line" title="{{ learn_item }}">{{ learn_item }}</div>
@@ -17,6 +21,7 @@
     <ul>
         <li id="duplicate">Duplicate</li>
         <li id="remove">Remove</li>
+        <li id="reset-resource">Reset</li>
     </ul>
 </div>
 

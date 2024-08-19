@@ -61,16 +61,20 @@ def prep_pdf(dirpath, filename):
 
     print('Verifying all images same size...')
     image_size0 = image_list[0].size
-    image_size1 = image_list[1].size
-    image_size2 = image_list[2].size
-    if image_size0 == image_size1:
+    try:
+        image_size1 = image_list[1].size
+        image_size2 = image_list[2].size
+    except IndexError:
         image_size = image_size0
-    elif image_size1 == image_size2:
-        image_size = image_size1
-    elif image_size2 == image_size0:
-        image_size = image_size2
     else:
-        raise
+        if image_size0 == image_size1:
+            image_size = image_size0
+        elif image_size1 == image_size2:
+            image_size = image_size1
+        elif image_size2 == image_size0:
+            image_size = image_size2
+        else:
+            raise
     image_list = [img for img in image_list if img.size == image_size]
 
     for i in range(0, len(image_list), 20):
@@ -111,7 +115,6 @@ def prep_learn_sequence(learn_folder):
         for url in urls:
             resource_names.append(url.strip())
         resource_names.remove('urls.txt')
-    random.shuffle(resource_names)
     for resource_name in resource_names:
         if resource_name[-4:] == '.pdf' and resource_name[:3] == 'fr|' and resource_name[3:-4] not in os.listdir(learn_folder):
             prep_pdf(learn_folder, resource_name[3:])
