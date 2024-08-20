@@ -22,6 +22,27 @@ function closePanel() {
     sidePanel.style.left = '-' + panelWidth + 'px';
 }
 
+/////////////////////////////////////////////////////////
+// variables that are used throughout the below functions
+/////////////////////////////////////////////////////////
+
+let currentResource = null;
+let rotateTimeout1 = null;
+let rotateTimeout2 = null;
+let rotateTimeout3 = null;
+let resourceBookmark = null;
+let resourceStorage = null;
+let aiReview = false;
+let contextText = '';
+
+let scrollInterval = null;
+let textDisplayTimeout = null;
+let charTimeout = null;
+let readWordTimeout = null;
+let jumpTextTimeout = null;
+
+let resourceCache = {};
+
 //////////////////////////////////////////////
 // js for drag and drop list on the side panel
 //////////////////////////////////////////////
@@ -29,10 +50,44 @@ function closePanel() {
 const resourceList = document.getElementById('resource-list');
 let draggingElement = null;
 
+function saveResourceList() {
+    let inputArray = [];
+    const inputs = document.querySelectorAll('input');
+    for (let i = 0; i < inputs.length; i++) {
+        inputArray.push(inputs[i].value);
+    }
+    localStorage.setItem('resourceListInputs', JSON.stringify(inputArray));
+    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+}
+
 let resourceListInnerHTML = localStorage.getItem('resourceListInnerHTML');
 if (resourceListInnerHTML !== null) {
     resourceList.innerHTML = JSON.parse(resourceListInnerHTML);
+    const learnItems = document.querySelectorAll('.draggable-item');
+    let targetLearnItem = null;
+    for (let i = 0; i < learnItems.length; i++) {
+        if (learnItems[i].style.backgroundColor === 'yellow') {
+            targetLearnItem = learnItems[i].firstElementChild;
+            break;
+        }
+    }
+    if (targetLearnItem !== null) {
+        setTimeout(function() {
+            activateResource(targetLearnItem);
+        });
+    }
 }
+if (localStorage.getItem('resourceListInputs') !== null) {
+    const resourceListInputs = JSON.parse(localStorage.getItem('resourceListInputs'));
+    const inputs = document.querySelectorAll('input');
+    for (let i = 0; i < inputs.length; i++) {
+        inputs[i].value = resourceListInputs[i];
+    }
+}
+
+document.addEventListener('input', function(event) {
+    saveResourceList();
+})
 
 document.querySelector('#shuffle-button').onclick = function() {
     // Function to shuffle an array using the Fisher-Yates shuffle algorithm
@@ -53,7 +108,7 @@ document.querySelector('#shuffle-button').onclick = function() {
     }
     // Call the shuffleDivs function
     shuffleDivs(resourceList);
-    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+    saveResourceList();
 }
 
 document.querySelector('#reset-button').onclick = function() {
@@ -79,7 +134,7 @@ resourceList.addEventListener('dragover', function(event) {
     } else {
         resourceList.insertBefore(draggingElement, afterElement);
     }
-    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+    saveResourceList();
 });
 
 function getDragAfterElement(container, y) {
@@ -105,26 +160,26 @@ let targetDiv = null;
 
 document.addEventListener('contextmenu', function(event) {
     event.preventDefault();
-    if (event.target.classList.contains('duplicable-div')) {
-        targetDiv = event.target;
+    if (event.target.parentElement.classList.contains('duplicable-div')) {
+        targetDiv = event.target.parentElement;
         contextMenu.style.display = 'block';
         contextMenu.style.left = `${event.pageX}px`;
         contextMenu.style.top = `${event.pageY}px`;
     } else {
         contextMenu.style.display = 'none';
     }
-    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+    saveResourceList();
 });
 
 document.addEventListener('click', function(event) {
     if (event.target.id === 'duplicate' && targetDiv) {
         duplicateDiv(targetDiv);
         contextMenu.style.display = 'none';
-        localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+        saveResourceList();
     } else if (event.target.id === 'remove' && targetDiv) {
         removeDiv(targetDiv);
         contextMenu.style.display = 'none';
-        localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+        saveResourceList();
     } else if (event.target.id === 'reset-resource' && targetDiv) {
         localStorage.setItem(targetDiv.innerHTML + '-status', null);
         contextMenu.style.display = 'none';
@@ -149,25 +204,8 @@ function removeDiv(div) {
 // js that controls the flow through learn items
 ////////////////////////////////////////////////
 
-let currentResource = null;
-let rotateTimeout1 = null;
-let rotateTimeout2 = null;
-let rotateTimeout3 = null;
-let resourceBookmark = null;
-let resourceStorage = null;
-let aiReview = false;
-let contextText = '';
-
-let scrollInterval = null;
-let textDisplayTimeout = null;
-let charTimeout = null;
-let readWordTimeout = null;
-let jumpTextTimeout = null;
-
-let resourceCache = {};
-
 document.addEventListener('dblclick', function(event) {
-    if (event.target.classList.contains('draggable-item')) {
+    if (event.target.classList.contains('learn-item-div')) {
         if (rotateTimeout1 !== null) {
             clearResourceDisplay();
         } else {
@@ -185,9 +223,9 @@ function activateResource(element) {
     document.querySelectorAll('.draggable-item').forEach(function(div) {
         div.style.backgroundColor = 'white';
     });
-    element.style.backgroundColor = 'yellow';
+    element.parentElement.style.backgroundColor = 'yellow';
     currentResource = element;
-    localStorage.setItem('resourceListInnerHTML', JSON.stringify(resourceList.innerHTML));
+    saveResourceList();
 
     let resourceStatus = JSON.parse(localStorage.getItem(currentResource.innerHTML + '-status'));
     if (resourceStatus === null) {
@@ -200,9 +238,9 @@ function activateResource(element) {
     rotateTimeout1 = setTimeout(function() {
         rotateTimeout1 = null;
         clearResourceDisplay();
-        let nextItem = currentResource.nextElementSibling;
+        let nextItem = currentResource.parentElement.nextElementSibling.firstElementChild;
         if (nextItem === null) {
-            nextItem = document.querySelector('.draggable-item');
+            nextItem = document.querySelector('.draggable-item').firstElementChild;
         }
         if (aiReview) {
             displayAIExamples();
@@ -213,12 +251,12 @@ function activateResource(element) {
                     document.querySelector('#learn-container').innerHTML = '';
                     document.onkeyup = null;
                     activateResource(nextItem);
-                }, 180000);
-            }, 180000);
+                }, parseFloat(currentResource.nextElementSibling.value.split(',')[2].trim())*60*1000);
+            }, parseFloat(currentResource.nextElementSibling.value.split(',')[1].trim())*60*1000);
         } else {
             activateResource(nextItem);
         }
-    }, 600000);
+    }, parseFloat(currentResource.nextElementSibling.value.split(',')[0].trim())*60*1000);
 
 }
 

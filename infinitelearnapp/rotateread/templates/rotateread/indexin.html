@@ -10,7 +10,10 @@
         </div>
         <div id="resource-list">
             {% for learn_item in learn_items %}
-                <div draggable="true" class="draggable-item duplicable-div ellipsis-line" title="{{ learn_item }}">{{ learn_item }}</div>
+                <div draggable="true" class="draggable-item duplicable-div" title="{{ learn_item }}">
+                    <div class="ellipsis-line learn-item-div" style="width: 80%;">{{ learn_item }}</div>
+                    <input type="text" style="width: 20%;" value="10,3,3">
+                </div>
             {% endfor %}
         </div>
     </div>

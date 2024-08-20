@@ -2,8 +2,6 @@ fr only saves from most recent pause
 
 need a way to be able to pause the flow of resources
 
-after returning to page, local storage IDs current resource with yellow, but still need to double click resource to activate
-
 add in the ai options in a modal for sudden questions
 
 add the ability to specify the round time on the side panel
@@ -11,8 +9,6 @@ add the ability to specify the round time on the side panel
 be able to get contextText and have AI questions for not just genread
 
 standardize the css names across files and make sure will be no conflicts
-
-have a better way to get texts, etc without re-scanning and loading too much
 
 have small pdfs just display the pdf; no fastread images or genread, etc
 
