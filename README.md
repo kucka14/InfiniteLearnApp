@@ -1,0 +1,1 @@
+This is a Django web app that allows the user to upload texts and videos and cycle through them in a systematic way. Interaction with the resources through the app is meant to promote rapid learning and retention.
