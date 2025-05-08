@@ -10,7 +10,7 @@ from django.utils.http import urlsafe_base64_decode
 import re
 
 # CONSTANTS
-LEARN_FOLDER = 'media/resources/MCIT1'
+LEARN_FOLDER = 'media/resources/learn1'
 
 ai_assistant_triplet = create_ai_assistant_triplet()
 
