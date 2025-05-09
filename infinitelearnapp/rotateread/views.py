@@ -64,17 +64,20 @@ def index(request):
                 resource_text = LEARN_FOLDER + '/' + resource_name
 
             if display_type == 'genread':
-                if detect_language(resource_text[:1000]) == 'es':
-                    #if resource_text had identifiers for images, remove them
-                    resource_text = re.sub(' d1ec9124e9c00620256ed5ee6bf66c28.*? ', ' ', resource_text)
-                    resource_text, translation_chunks = get_translate_text(resource_text)
-                    return_data = {
-                        'display_type': 'translate',
-                        'resource_text': resource_text,
-                        'translation_chunks': translation_chunks
-                    }
-                    return JsonResponse({'return_data': return_data})
-
+                try:
+                    lang = detect_language(resource_text[:1000])
+                    if lang == 'es':
+                        #if resource_text had identifiers for images, remove them
+                        resource_text = re.sub(' d1ec9124e9c00620256ed5ee6bf66c28.*? ', ' ', resource_text)
+                        resource_text, translation_chunks = get_translate_text(resource_text)
+                        return_data = {
+                            'display_type': 'translate',
+                            'resource_text': resource_text,
+                            'translation_chunks': translation_chunks
+                        }
+                        return JsonResponse({'return_data': return_data})
+                except:
+                    pass
             return_data = {
                 'display_type': display_type,
                 'resource_text': resource_text
